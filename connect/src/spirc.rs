@@ -23,7 +23,7 @@ use std;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct SpircTask {
-    player: Player,
+    player: Box<Player>,
     mixer: Box<Mixer>,
     linear_volume: bool,
 
@@ -207,7 +207,7 @@ impl Spirc {
     pub fn new(
         config: ConnectConfig,
         session: Session,
-        player: Player,
+        player: Box<Player>,
         mixer: Box<Mixer>,
     ) -> (Spirc, SpircTask) {
         debug!("new Spirc[{}]", session.session_id());

@@ -12,8 +12,8 @@ extern crate tempfile;
 
 extern crate librespot_core as core;
 
-mod decrypt;
-mod fetch;
+pub mod decrypt;
+pub mod fetch;
 
 #[cfg(not(any(feature = "with-tremor", feature = "with-vorbis")))]
 mod lewton_decoder;

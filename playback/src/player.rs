@@ -20,7 +20,15 @@ use audio_backend::Sink;
 use metadata::{FileFormat, Metadata, Track};
 use mixer::AudioFilter;
 
-pub struct Player {
+pub trait Player {
+    fn load(&self, track: SpotifyId, start_playing: bool, position_ms: u32) -> oneshot::Receiver<()>;
+    fn play(&self);
+    fn pause(&self);
+    fn seek(&self, position_ms: u32);
+    fn stop(&self);
+}
+
+pub struct PlayerImpl {
     commands: Option<std::sync::mpsc::Sender<PlayerCommand>>,
     thread_handle: Option<thread::JoinHandle<()>>,
 }
@@ -108,15 +116,15 @@ impl NormalisationData {
     }
 }
 
-impl Player {
+impl PlayerImpl {
     pub fn new<F>(
         config: PlayerConfig,
         session: Session,
         audio_filter: Option<Box<AudioFilter + Send>>,
         sink_builder: F,
-    ) -> (Player, PlayerEventChannel)
-    where
-        F: FnOnce() -> Box<Sink> + Send + 'static,
+    ) -> (impl Player, PlayerEventChannel)
+        where
+            F: FnOnce() -> Box<Sink> + Send + 'static,
     {
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
         let (event_sender, event_receiver) = futures::sync::mpsc::unbounded();
@@ -140,7 +148,7 @@ impl Player {
         });
 
         (
-            Player {
+            PlayerImpl {
                 commands: Some(cmd_tx),
                 thread_handle: Some(handle),
             },
@@ -151,8 +159,10 @@ impl Player {
     fn command(&self, cmd: PlayerCommand) {
         self.commands.as_ref().unwrap().send(cmd).unwrap();
     }
+}
 
-    pub fn load(
+impl Player for PlayerImpl {
+    fn load(
         &self,
         track: SpotifyId,
         start_playing: bool,
@@ -164,24 +174,24 @@ impl Player {
         rx
     }
 
-    pub fn play(&self) {
+    fn play(&self) {
         self.command(PlayerCommand::Play)
     }
 
-    pub fn pause(&self) {
+    fn pause(&self) {
         self.command(PlayerCommand::Pause)
     }
 
-    pub fn stop(&self) {
+    fn stop(&self) {
         self.command(PlayerCommand::Stop)
     }
 
-    pub fn seek(&self, position_ms: u32) {
+    fn seek(&self, position_ms: u32) {
         self.command(PlayerCommand::Seek(position_ms));
     }
 }
 
-impl Drop for Player {
+impl Drop for PlayerImpl {
     fn drop(&mut self) {
         debug!("Shutting down player thread ...");
         self.commands = None;
@@ -614,7 +624,7 @@ impl ::std::fmt::Debug for PlayerCommand {
     }
 }
 
-struct Subfile<T: Read + Seek> {
+pub struct Subfile<T: Read + Seek> {
     stream: T,
     offset: u64,
 }

@@ -37,7 +37,7 @@ use librespot::connect::spirc::{Spirc, SpircTask};
 use librespot::playback::audio_backend::{self, Sink, BACKENDS};
 use librespot::playback::config::{Bitrate, PlayerConfig};
 use librespot::playback::mixer::{self, Mixer};
-use librespot::playback::player::{Player, PlayerEvent};
+use librespot::playback::player::{PlayerImpl, PlayerEvent};
 
 mod player_event_handler;
 use player_event_handler::run_program_on_events;
@@ -427,11 +427,11 @@ impl Future for Main {
                 let audio_filter = mixer.get_audio_filter();
                 let backend = self.backend;
                 let (player, event_channel) =
-                    Player::new(player_config, session.clone(), audio_filter, move || {
+                    PlayerImpl::new(player_config, session.clone(), audio_filter, move || {
                         (backend)(device)
                     });
 
-                let (spirc, spirc_task) = Spirc::new(connect_config, session, player, mixer);
+                let (spirc, spirc_task) = Spirc::new(connect_config, session, Box::new(player), mixer);
                 self.spirc = Some(spirc);
                 self.spirc_task = Some(spirc_task);
                 self.player_event_channel = Some(event_channel);
